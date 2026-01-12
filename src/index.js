@@ -4,6 +4,7 @@ dotenv.config({ quiet: true });
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 3000;
+const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
 const wss = new WebSocket.WebSocketServer({ host: '0.0.0.0', port: PORT });
 
@@ -21,8 +22,28 @@ function broadcast(message) {
   }
 }
 
+function heartbeat() {
+  this.isAlive = true;
+}
+
+const interval = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) {
+      console.log("x terminating dead client");
+      ws.terminate();
+      continue;
+    }
+
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, HEARTBEAT_INTERVAL);
+
 wss.on("connection", (ws) => {
   console.log("x client connected");
+
+  ws.isAlive = true;
+  ws.on("pong", heartbeat);
 
   // Send current state immediately
   ws.send(`STATUS ${fanStatus}`);
@@ -96,6 +117,10 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     console.log("x client disconnected");
   });
+});
+
+wss.on("close", () => {
+  clearInterval(interval);
 });
 
 console.log(`v WebSocket server running on port ${PORT}`);
