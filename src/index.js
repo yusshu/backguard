@@ -1,15 +1,11 @@
 const dotenv = require("dotenv");
 dotenv.config({ quiet: true });
 
-const express = require("express");
-const http = require("http");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 3000;
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.WebSocketServer({ host: '0.0.0.0', port: PORT });
 
 let fanStatus = "off"; // off | slow | medium | fast
 
@@ -18,17 +14,17 @@ function isValidStatus(status) {
 }
 
 function broadcast(message) {
-  wss.clients.forEach((client) => {
+  for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }
-  });
+  }
 }
 
-wss.on("connection", (ws, req) => {
+wss.on("connection", (ws) => {
   console.log("x client connected");
 
-  // send current state immediately
+  // Send current state immediately
   ws.send(`STATUS ${fanStatus}`);
 
   ws.on("message", (data) => {
@@ -62,7 +58,6 @@ wss.on("connection", (ws, req) => {
       fanStatus = status;
       console.log("v fan status set by client:", fanStatus);
 
-      // Broadcast so ESP32 + UI sync
       broadcast(`SET_STATUS ${fanStatus}`);
       broadcast(`STATUS ${fanStatus}`);
       return;
@@ -72,32 +67,35 @@ wss.on("connection", (ws, req) => {
       const jsonPart = msg.substring(9);
       try {
         const wifiConfig = JSON.parse(jsonPart);
-        console.log("v received WiFi config:", wifiConfig);
 
         if (!wifiConfig.ssid || typeof wifiConfig.ssid !== "string") {
           ws.send("x error missing SSID");
           return;
-        } else if (!wifiConfig.password || typeof wifiConfig.password !== "string") {
+        }
+
+        if (!wifiConfig.password || typeof wifiConfig.password !== "string") {
           ws.send("x error missing password");
           return;
         }
 
-        const newSecureJson = JSON.stringify({ ssid: wifiConfig.ssid, password: wifiConfig.password });
-        console.log(`v updated WiFi config: SSID=${wifiConfig.ssid} PASSWORD=${"*".repeat(wifiConfig.password.length)}`);
+        console.log(
+          `v updated WiFi config: SSID=${wifiConfig.ssid} PASSWORD=${"*".repeat(wifiConfig.password.length)}`
+        );
 
-        // forward to ESP32
-        broadcast(`SET_WIFI ${newSecureJson}`);
-      } catch (e) {
+        broadcast(`SET_WIFI ${JSON.stringify(wifiConfig)}`);
+        return;
+      } catch {
         ws.send("x error invalid WiFi config");
+        return;
       }
     }
 
     ws.send("x error unknown command");
   });
 
-  ws.on("close", () => 
-    console.log("x client disconnected"));
+  ws.on("close", () => {
+    console.log("x client disconnected");
+  });
 });
 
-server.listen(PORT, () =>
-  console.log(`v server running on port ${PORT}`));
+console.log(`v WebSocket server running on port ${PORT}`);
