@@ -68,6 +68,30 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
+    if (msg.startsWith("SET_WIFI ")) {
+      const jsonPart = msg.substring(9);
+      try {
+        const wifiConfig = JSON.parse(jsonPart);
+        console.log("v received WiFi config:", wifiConfig);
+
+        if (!wifiConfig.ssid || typeof wifiConfig.ssid !== "string") {
+          ws.send("x error missing SSID");
+          return;
+        } else if (!wifiConfig.password || typeof wifiConfig.password !== "string") {
+          ws.send("x error missing password");
+          return;
+        }
+
+        const newSecureJson = JSON.stringify({ ssid: wifiConfig.ssid, password: wifiConfig.password });
+        console.log(`v updated WiFi config: SSID=${wifiConfig.ssid} PASSWORD=${"*".repeat(wifiConfig.password.length)}`);
+
+        // forward to ESP32
+        broadcast(`SET_WIFI ${newSecureJson}`);
+      } catch (e) {
+        ws.send("x error invalid WiFi config");
+      }
+    }
+
     ws.send("x error unknown command");
   });
 
