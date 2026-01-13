@@ -206,7 +206,7 @@ function getOrRegisterDevice(identification, secret) {
   return {
     id: identification,
     type: 'fan',
-    name: `Fan ${identification.slice(-6)}`
+    name: `Fan ${identification}`
   };
 }
 
