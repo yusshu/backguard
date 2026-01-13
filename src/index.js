@@ -8,19 +8,210 @@ const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
 const wss = new WebSocket.WebSocketServer({ host: '0.0.0.0', port: PORT });
 
-let fanStatus = "off"; // off | slow | medium | fast
+// Client/Device sends:
+// HELLO <type> <id> <secret>
+//
+// Client can send to a Fan:
+// DEVICE <deviceId> SET_STATUS fast
+// DEVICE <deviceId> SET_WIFI {...}
+//
+// Client can receive:
+// DEVICE <deviceId> {...}
+//
+// Device sends to the server:
+// AMBIENT <temp> <humidity>
 
-function isValidStatus(status) {
-  return ["off", "slow", "medium", "fast"].includes(status);
-}
 
-function broadcast(message) {
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+// map to store connections
+let connectionIdCounter = 1;
+const connections = new Map();
+
+function broadcastToClients(message) {
+  for (const connection of connections.values()) {
+    if (connection.type === 'client' 
+      && connection.ws.readyState === WebSocket.OPEN) {
+      connection.ws.send(message);
     }
   }
 }
+
+class Connection {
+  constructor(ws, type = 'unknown') {
+    this.id = connectionIdCounter++;
+    this.ws = ws;
+    this.type = type;
+  }
+
+  handle(cmd, args) {
+    console.warn(`received command: '${cmd}' with args: '${args}' but no handler is defined`);
+  }
+}
+
+class DeviceConnection extends Connection {
+  constructor(ws, device) {
+    super(ws, "device");
+    this.device = device;
+  }
+
+  handleFromClient(cmd, args) {
+    console.warn(`received command from client: '${cmd}' with args: '${args}' but no handler is defined`);
+  }
+
+  serializeState() {
+    return {};
+  }
+}
+
+class FanDeviceConnection extends DeviceConnection {
+  constructor(ws, device) {
+    super(ws, device);
+    this._status = 'off'; // off | slow | medium | fast
+    this._rotates = false;
+    this._temperature = null; // unknown temperature
+    this._humidity = null; // unknown humidity
+  }
+
+  handleFromClient(client, cmd, args) {
+    if (cmd === 'SET_STATUS') {
+      const status = args[0];
+      if (this.setStatus(status)) {
+        console.log(`[fan ${this.device.id}] ${client.user.name} set fan status to ${this._status}`);
+        this.broadcastStatus();
+        return true;
+      }
+      client.ws.send("x error invalid status");
+      return true;
+    } else if (cmd === 'SET_ROTATES') {
+      const rotatesStr = args[0];
+      if (rotatesStr === 'true' || rotatesStr === 'false') {
+        const rotates = rotatesStr === 'true';
+        this._rotates = rotates;
+        this.broadcastStatusUpdate();
+        console.log(`[fan ${this.device.id}] ${client.user.name} set fan rotates to ${this._rotates}`);
+        this.ws.send(`SET_ROTATES ${this._rotates}`);
+        return true;
+      }
+      client.ws.send("x error invalid rotates value");
+      return true;
+    } else if (cmd === 'SET_WIFI') {
+      const jsonPart = args.join(' ').trim();
+      try {
+        const wifiConfig = JSON.parse(jsonPart);
+
+        if (!wifiConfig.ssid || typeof wifiConfig.ssid !== "string") {
+          client.ws.send("x error missing SSID");
+          return true;
+        }
+
+        if (!wifiConfig.password || typeof wifiConfig.password !== "string") {
+          client.ws.send("x error missing password");
+          return true;
+        }
+
+        console.log(
+          `[fan ${this.device.id}] updated WiFi config: SSID=${wifiConfig.ssid} PASSWORD=${"*".repeat(wifiConfig.password.length)}`
+        );
+
+        this.ws.send(`SET_WIFI ${JSON.stringify(wifiConfig)}`);
+        return true;
+      } catch {
+        client.ws.send("x error invalid WiFi config");
+        return;
+      }
+    } else {
+      console.warn(`unknown command from client to device: '${cmd}' with args: '${args}'`);
+      return false;
+    }
+  }
+
+  serializeState() {
+    return {
+      status: this._status,
+      rotates: this._rotates,
+      temperature: this._temperature,
+      humidity: this._humidity,
+    };
+  }
+
+  broadcastStatusUpdate() {
+    broadcastToClients(`DEVICE ${this.device.id} ${JSON.stringify(this.serializeState())}`);
+  }
+
+  handle(cmd, body) {
+    if (cmd === 'STATUS') {
+      const status = body;
+      if (FanDeviceConnection.isValidStatus(status)) {
+        this._status = status;
+        console.log(`[fan ${this.device.id}] fan updated its status to ${this._status}`);
+        this.broadcastStatusUpdate();
+      }
+      return true;
+    } else if (cmd === 'AMBIENT') {
+      const args = body.split(' ');
+      const temperature = parseFloat(args[0]);
+      const humidity = parseInt(args[1], 10);
+      this._temperature = temperature;
+      this._humidity = humidity;
+      console.log(`[fan ${this.device.id}] ambient data updated: temperature=${this._temperature}°C humidity=${this._humidity}%`);
+      this.broadcastStatusUpdate();
+      return true;
+    }
+  }
+
+  setStatus(status) {
+    if (FanDeviceConnection.isValidStatus(status)) {
+      this.ws.send(`SET_STATUS ${status}`);
+      this._status = status;
+      return true;
+    }
+    return false;
+  }
+
+  static isValidStatus(status) {
+    return ["off", "slow", "medium", "fast"].includes(status);
+  }
+}
+
+class ClientConnection extends Connection {
+  constructor(ws, user) {
+    super(ws, "client");
+    this.user = user;
+  }
+
+  handle(cmd, body) {
+    if (cmd === 'DEVICE') {
+      const [ deviceId, deviceCmd, ...deviceArgs ] = body.split(' ');
+
+      for (const connection of connections.values()) {
+        if (connection.type === 'device' && connection.device.id === deviceId) {
+          connection.handleFromClient(this, deviceCmd, deviceArgs);
+          return true;
+        }
+      }
+      return true;
+    }
+
+    console.warn(`unknown command from client: '${cmd}'`);
+    return false;
+  }
+}
+
+// to-do: wire to an actual database and do actual authentication
+function getUserByIdentification(identification, secret) {
+  if (identification !== 'andre' && secret !== 'ipoopmypants') {
+    return null;
+  }
+  return { id: 1, name: 'Andre' };
+}
+
+function getOrRegisterDevice(identification, secret) {
+  return {
+    id: identification,
+    type: 'fan',
+    name: `Fan ${identification.slice(-6)}`
+  };
+}
+
 
 function heartbeat() {
   this.isAlive = true;
@@ -40,82 +231,80 @@ const interval = setInterval(() => {
 }, HEARTBEAT_INTERVAL);
 
 wss.on("connection", (ws) => {
-  console.log("x client connected");
+  let conn = null;
 
   ws.isAlive = true;
   ws.on("pong", heartbeat);
 
-  // Send current state immediately
-  ws.send(`STATUS ${fanStatus}`);
-
   ws.on("message", (data) => {
-    const msg = data.toString().trim();
-    console.log("d received:", msg);
+    const [ cmd, body ] = data.toString().trim().split(' ', 2);
 
-    if (msg === "CHECK_STATUS") {
-      ws.send(`STATUS ${fanStatus}`);
-      return;
-    }
-
-    if (msg.startsWith("STATUS ")) {
-      const status = msg.split(" ")[1];
-
-      if (isValidStatus(status)) {
-        fanStatus = status;
-        console.log("v fan status updated by device:", fanStatus);
-        broadcast(`STATUS ${fanStatus}`);
-      }
-      return;
-    }
-
-    if (msg.startsWith("SET_STATUS ")) {
-      const status = msg.split(" ")[1];
-
-      if (!isValidStatus(status)) {
-        ws.send("x error invalid status");
+    if (cmd === 'HELLO') {
+      if (conn) {
+        console.warn("received duplicate HELLO");
+        ws.send("x error already sent HELLO");
+        ws.close();
         return;
       }
 
-      fanStatus = status;
-      console.log("v fan status set by client:", fanStatus);
+      // this is the first message a connection sends
+      const [ deviceType, identification, secret ] = body.split(' ');
 
-      broadcast(`SET_STATUS ${fanStatus}`);
-      broadcast(`STATUS ${fanStatus}`);
-      return;
-    }
-
-    if (msg.startsWith("SET_WIFI ")) {
-      const jsonPart = msg.substring(9);
-      try {
-        const wifiConfig = JSON.parse(jsonPart);
-
-        if (!wifiConfig.ssid || typeof wifiConfig.ssid !== "string") {
-          ws.send("x error missing SSID");
+      if (deviceType === 'client') {
+        const user = getUserByIdentification(identification, secret);
+        if (!user) {
+          ws.send("x error authentication failed");
+          ws.close();
           return;
         }
-
-        if (!wifiConfig.password || typeof wifiConfig.password !== "string") {
-          ws.send("x error missing password");
+        conn = new ClientConnection(ws, user);
+        connections.set(conn.id, conn);
+        console.log(`client connected: ${user.name}`);
+        
+        // send devices status to the newly connected client
+        const json = {};
+        for (const connection of connections.values()) {
+          if (connection.type === 'device') {
+            json[connection.device.id] = connection.serializeState();
+          }
+        }
+        ws.send(`DEVICE_ALL ${JSON.stringify(json)}`);
+        return;
+      } else if (deviceType === 'fan') {
+        const device = getOrRegisterDevice(identification, secret);
+        if (!device) {
+          ws.send("x error device authentication failed");
+          ws.close();
           return;
         }
-
-        console.log(
-          `v updated WiFi config: SSID=${wifiConfig.ssid} PASSWORD=${"*".repeat(wifiConfig.password.length)}`
-        );
-
-        broadcast(`SET_WIFI ${JSON.stringify(wifiConfig)}`);
-        return;
-      } catch {
-        ws.send("x error invalid WiFi config");
+        conn = new FanDeviceConnection(ws, device);
+        connections.set(conn.id, conn);
+        console.log(`fan device connected: ${device.name} (${identification})`);
         return;
       }
-    }
 
-    ws.send("x error unknown command");
+      ws.send("x error unknown device type");
+      ws.close();
+      return;
+    } else if (conn) {
+      const handled = conn.handle(cmd, body);
+      if (!handled) {
+        console.warn(`unhandled command from ${conn.type}: '${cmd}' with body: '${body}'`);
+        ws.send("x error unknown command");
+      }
+    } else {
+      console.warn("received message before HELLO");
+      ws.send("x error must send HELLO first");
+      ws.close();
+      return;
+    }
   });
 
   ws.on("close", () => {
     console.log("x client disconnected");
+    if (conn) {
+      connections.delete(conn.id);
+    }
   });
 });
 
@@ -123,4 +312,4 @@ wss.on("close", () => {
   clearInterval(interval);
 });
 
-console.log(`v WebSocket server running on port ${PORT}`);
+console.log(`v websocket server running on port ${PORT}`);
