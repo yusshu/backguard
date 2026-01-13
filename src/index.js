@@ -144,6 +144,14 @@ class FanDeviceConnection extends DeviceConnection {
         this.broadcastStatusUpdate();
       }
       return true;
+    } else if (cmd === 'ROTATES') {
+      const rotatesStr = args[0];
+      if (rotatesStr === 'true' || rotatesStr === 'false') {
+        this._rotates = rotatesStr === 'true';
+        console.log(`[fan ${this.device.id}] fan updated its rotates to ${this._rotates}`);
+        this.broadcastStatusUpdate();
+      }
+      return true;
     } else if (cmd === 'AMBIENT') {
       const temperature = parseFloat(args[0]);
       const humidity = parseInt(args[1], 10);
@@ -153,6 +161,8 @@ class FanDeviceConnection extends DeviceConnection {
       this.broadcastStatusUpdate();
       return true;
     }
+    console.warn(`unknown command from device: '${cmd}' with args: '${args}'`);
+    return false;
   }
 
   setStatus(status) {
