@@ -135,9 +135,9 @@ class FanDeviceConnection extends DeviceConnection {
     broadcastToClients(`DEVICE ${this.device.id} ${JSON.stringify(this.serializeState())}`);
   }
 
-  handle(cmd, body) {
+  handle(cmd, args) {
     if (cmd === 'STATUS') {
-      const status = body;
+      const status = args[0];
       if (FanDeviceConnection.isValidStatus(status)) {
         this._status = status;
         console.log(`[fan ${this.device.id}] fan updated its status to ${this._status}`);
@@ -145,7 +145,6 @@ class FanDeviceConnection extends DeviceConnection {
       }
       return true;
     } else if (cmd === 'AMBIENT') {
-      const args = body.split(' ');
       const temperature = parseFloat(args[0]);
       const humidity = parseInt(args[1], 10);
       this._temperature = temperature;
@@ -176,9 +175,9 @@ class ClientConnection extends Connection {
     this.user = user;
   }
 
-  handle(cmd, body) {
+  handle(cmd, args) {
     if (cmd === 'DEVICE') {
-      const [ deviceId, deviceCmd, ...deviceArgs ] = body.split(' ');
+      const [ deviceId, deviceCmd, ...deviceArgs ] = args;
 
       for (const connection of connections.values()) {
         if (connection.type === 'device' && connection.device.id === deviceId) {
@@ -235,7 +234,7 @@ wss.on("connection", (ws) => {
   ws.on("pong", heartbeat);
 
   ws.on("message", (data) => {
-    const [ cmd, body ] = data.toString().trim().split(' ', 2);
+    const [ cmd, ...args ] = data.toString().trim().split(' ');
 
     if (cmd === 'HELLO') {
       if (conn) {
@@ -246,7 +245,7 @@ wss.on("connection", (ws) => {
       }
 
       // this is the first message a connection sends
-      const [ deviceType, identification, secret ] = body.split(' ');
+      const [ deviceType, identification, secret ] = args;
 
       if (deviceType === 'client') {
         const user = getUserByIdentification(identification, secret);
@@ -285,9 +284,9 @@ wss.on("connection", (ws) => {
       ws.close();
       return;
     } else if (conn) {
-      const handled = conn.handle(cmd, body);
+      const handled = conn.handle(cmd, args);
       if (!handled) {
-        console.warn(`unhandled command from ${conn.type}: '${cmd}' with body: '${body}'`);
+        console.warn(`unhandled command from ${conn.type}: '${cmd}' with args: '${args}'`);
         ws.send("x error unknown command");
       }
     } else {
