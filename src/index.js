@@ -18,8 +18,9 @@ const wss = new WebSocket.WebSocketServer({ host: '0.0.0.0', port: PORT });
 // Client can receive:
 // DEVICE <deviceId> {...}
 //
-// Device sends to the server:
+// Fan device sends to the server:
 // AMBIENT <temp> <humidity>
+// STATUS <status>
 
 
 // map to store connections
@@ -75,8 +76,7 @@ class FanDeviceConnection extends DeviceConnection {
     if (cmd === 'SET_STATUS') {
       const status = args[0];
       if (this.setStatus(status)) {
-        console.log(`[fan ${this.device.id}] ${client.user.name} set fan status to ${this._status}`);
-        this.broadcastStatus();
+        console.log(`[fan ${this.device.id}] ${client.user.name} set fan status to ${status}`);
         return true;
       }
       client.ws.send("x error invalid status");
@@ -85,10 +85,8 @@ class FanDeviceConnection extends DeviceConnection {
       const rotatesStr = args[0];
       if (rotatesStr === 'true' || rotatesStr === 'false') {
         const rotates = rotatesStr === 'true';
-        this._rotates = rotates;
-        this.broadcastStatusUpdate();
-        console.log(`[fan ${this.device.id}] ${client.user.name} set fan rotates to ${this._rotates}`);
-        this.ws.send(`SET_ROTATES ${this._rotates}`);
+        console.log(`[fan ${this.device.id}] ${client.user.name} set fan rotates to ${rotates}`);
+        this.ws.send(`SET_ROTATES ${rotates}`);
         return true;
       }
       client.ws.send("x error invalid rotates value");
@@ -161,7 +159,7 @@ class FanDeviceConnection extends DeviceConnection {
   setStatus(status) {
     if (FanDeviceConnection.isValidStatus(status)) {
       this.ws.send(`SET_STATUS ${status}`);
-      this._status = status;
+      // this._status = status;
       return true;
     }
     return false;
