@@ -35,7 +35,12 @@ class Server:
                         conn = ControlConnection(self, ws, user)
 
                         snapshot = {
-                            c.device["id"]: c.serialize_state()
+                            c.device.id: {
+                                'id': c.device.id,
+                                'name': c.device.name,
+                                'type': c.device.type,
+                                'state': c.serialize_state(),
+                            }
                             for c in self.connections.values()
                             if c.type == "device"
                         }
@@ -44,7 +49,7 @@ class Server:
                     elif device_type == "fan":
                         device = self.store.get_or_register_device(identification, secret)
                         conn = FanDeviceConnection(self, ws, device)
-
+                        print(f"✓ device connected: {device.id}")
                     else:
                         await ws.send("x error unknown device type")
                         return
