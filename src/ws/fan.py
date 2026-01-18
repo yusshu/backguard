@@ -73,5 +73,5 @@ class FanDeviceConnection(DeviceConnection):
 
     def broadcast(self):
         self.server.broadcast_to_clients(
-            f"DEVICE {self.device['id']} {json.dumps(self.serialize_state())}"
+            f"DEVICE {self.device.id} {json.dumps(self.serialize_state())}"
         )
