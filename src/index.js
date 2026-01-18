@@ -272,7 +272,12 @@ wss.on("connection", (ws) => {
         const json = {};
         for (const connection of connections.values()) {
           if (connection.type === 'device') {
-            json[connection.device.id] = connection.serializeState();
+            const { device } = connection;
+            json[device.id] = {
+              id: device.id,
+              type: device.type,
+              state: connection.serializeState(),
+            };
           }
         }
         ws.send(`DEVICE_ALL ${JSON.stringify(json)}`);
