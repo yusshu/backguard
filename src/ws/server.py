@@ -70,7 +70,7 @@ class Server:
             print("x client disconnected")
 
     async def serve(self):
-        async with websockets.serve(self.handle, self.host, self.port):
+        async with websockets.serve(self.handle, self.host, self.port, ping_interval=20, ping_timeout=20):
             print(f"✓ websocket server running on port {self.port}")
             await asyncio.Future()
 
