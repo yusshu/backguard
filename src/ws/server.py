@@ -5,6 +5,7 @@ import websockets
 from .control import ControlConnection
 from .fan import FanDeviceConnection
 from ..data.store import Store
+from ..auth.jwt import verify_jwt
 
 class Server:
     def __init__(self, store: Store, host='localhost', port=8080):
@@ -24,11 +25,24 @@ class Server:
                     if conn:
                         await ws.send("x error duplicate HELLO")
                         return
+                    
+                    if len(args) < 2:
+                        await ws.send("x error invalid HELLO format")
+                        return
 
-                    device_type, identification, secret = args
+                    device_type = args[0]
 
                     if device_type == "client":
-                        user = self.store.get_user(identification, secret)
+                        token = args[1]
+                        payload = verify_jwt(token)
+                        if not payload:
+                            ws.transport.close()
+                            return
+                        user_id = payload.get("user_id")
+                        if not user_id:
+                            ws.transport.close()
+                            return
+                        user = self.store.get_user_by_id(user_id)
                         if not user:
                             ws.transport.close()
                             return
@@ -48,6 +62,7 @@ class Server:
                         await ws.send(f"DEVICE_ALL {json.dumps(snapshot)}")
 
                     elif device_type == "fan":
+                        identification, secret = args[1], args[2]
                         device = self.store.get_or_register_device(identification, secret)
                         conn = FanDeviceConnection(self, ws, device)
                         print(f"✓ device connected: {device.id}")
