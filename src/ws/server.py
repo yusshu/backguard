@@ -39,7 +39,7 @@ class Server:
                         if not payload:
                             ws.transport.close()
                             return
-                        user_id = payload.get("user_id")
+                        user_id = payload.get("sub")
                         if not user_id:
                             ws.transport.close()
                             return
