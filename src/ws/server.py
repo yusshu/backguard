@@ -94,8 +94,8 @@ class Server:
             self.handle,
             self.host,
             self.port,
-            ping_interval=None,
-            ping_timeout=None,
+            ping_interval=15,
+            ping_timeout=15,
             compression=None,
         ) as server:
             print(f"✓ websocket server running on port {self.port}")
