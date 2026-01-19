@@ -17,16 +17,16 @@ class FanDeviceConnection(DeviceConnection):
         if cmd == "SET_STATUS":
             status = args[0]
             if status in self.VALID_STATUS:
-                await self.send(f"SET_STATUS {status}")
+                await self.ws.send(f"SET_STATUS {status}")
                 return True
-            await client.send("x error invalid status")
+            await client.ws.send("x error invalid status")
             return True
 
         if cmd == "SET_ROTATES":
             if args[0] in ("true", "false"):
-                await self.send(f"SET_ROTATES {args[0]}")
+                await self.ws.send(f"SET_ROTATES {args[0]}")
                 return True
-            await client.send("x error invalid rotates value")
+            await client.ws.send("x error invalid rotates value")
             return True
 
         if cmd == "SET_WIFI":
@@ -36,10 +36,10 @@ class FanDeviceConnection(DeviceConnection):
                     raise ValueError("ssid")
                 if not isinstance(cfg.get("password"), str):
                     raise ValueError("password")
-                await self.send(f"SET_WIFI {json.dumps(cfg)}")
+                await self.ws.send(f"SET_WIFI {json.dumps(cfg)}")
                 return True
             except Exception:
-                await client.send("x error invalid WiFi config")
+                await client.ws.send("x error invalid WiFi config")
                 return True
 
         return False
@@ -47,18 +47,18 @@ class FanDeviceConnection(DeviceConnection):
     async def handle(self, cmd, args):
         if cmd == "STATUS" and args[0] in self.VALID_STATUS:
             self._status = args[0]
-            await self.broadcast()
+            self.broadcast()
             return True
 
         if cmd == "ROTATES" and args[0] in ("true", "false"):
             self._rotates = args[0] == "true"
-            await self.broadcast()
+            self.broadcast()
             return True
 
         if cmd == "AMBIENT":
             self._temperature = float(args[0])
             self._humidity = int(args[1])
-            await self.broadcast()
+            self.broadcast()
             return True
 
         return False
@@ -71,7 +71,7 @@ class FanDeviceConnection(DeviceConnection):
             "humidity": self._humidity,
         }
 
-    async def broadcast(self):
-        await self.server.broadcast_to_clients(
+    def broadcast(self):
+        self.server.broadcast_to_clients(
             f"DEVICE {self.device.id} {json.dumps(self.serialize_state())}"
         )

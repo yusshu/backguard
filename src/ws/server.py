@@ -22,7 +22,7 @@ class Server:
 
                 if cmd == "HELLO":
                     if conn:
-                        await conn.send("x error duplicate HELLO")
+                        await ws.send("x error duplicate HELLO")
                         return
 
                     device_type, identification, secret = args
@@ -44,8 +44,8 @@ class Server:
                             for c in self.connections.values()
                             if c.type == "device"
                         }
-                        await conn.send(f"DEVICE_ALL {json.dumps(snapshot)}")
-                        print(f"✓ client connected: {user.username}")
+                        await ws.send(f"DEVICE_ALL {json.dumps(snapshot)}")
+
                     elif device_type == "fan":
                         device = self.store.get_or_register_device(identification, secret)
                         conn = FanDeviceConnection(self, ws, device)
@@ -55,8 +55,6 @@ class Server:
                         return
 
                     if conn.id in self.connections:
-                        print(f"x duplicate connection for id: {conn.id}")
-                        await conn.send("x error duplicate connection id")
                         ws.transport.close()
                         return
                     self.connections[conn.id] = conn
@@ -68,7 +66,7 @@ class Server:
 
                 handled = await conn.handle(cmd, args)
                 if not handled:
-                    await conn.send("x error unknown command")
+                    await ws.send("x error unknown command")
         except websockets.ConnectionClosedOK:
             pass
         except websockets.ConnectionClosedError as e:
@@ -103,7 +101,10 @@ class Server:
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
 
-    async def broadcast_to_clients(self, message):
+    def broadcast_to_clients(self, message):
         for conn in self.connections.values():
             if conn.type == "client":
-                await conn.send(message)
+                self.loop.call_soon_threadsafe(
+                    asyncio.create_task,
+                    conn.ws.send(message)
+                )
