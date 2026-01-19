@@ -1,13 +1,12 @@
 import os
 from dotenv import load_dotenv
+load_dotenv()
 
 from .ws.server import Server
 from .data.models import Base
 from .data.db import SessionLocal, engine
 from .data.store import Store
 from .auth.app import create_app
-
-load_dotenv()
 
 WS_PORT = int(os.getenv("WS_PORT", 3000))
 HTTP_PORT = int(os.getenv("HTTP_PORT", 5000))
