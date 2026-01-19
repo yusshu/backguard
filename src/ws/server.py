@@ -30,7 +30,7 @@ class Server:
                     if device_type == "client":
                         user = self.store.get_user(identification, secret)
                         if not user:
-                            await ws.close(code=1008, reason="Authentication failed")
+                            ws.transport.close()
                             return
                         conn = ControlConnection(self, ws, user)
 
@@ -55,7 +55,7 @@ class Server:
                         return
 
                     if conn.id in self.connections:
-                        await ws.close(code=1008, reason="Duplicate connection")
+                        ws.transport.close()
                         return
                     self.connections[conn.id] = conn
                     continue
