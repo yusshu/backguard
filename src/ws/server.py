@@ -74,7 +74,12 @@ class Server:
         finally:
             if conn:
                 self.connections.pop(conn.id, None)
-            print("x client disconnected")
+                if conn.type == 'device':
+                    print(f"x device disconnected: {conn.device.id}")
+                else:
+                    print(f"x client disconnected: {conn.user.username}")
+            else:
+                print("x connection closed before HELLO")
 
     async def serve(self):
         self.loop = asyncio.get_running_loop()
@@ -85,9 +90,9 @@ class Server:
             ping_interval=None,
             ping_timeout=None,
             compression=None,
-        ):
+        ) as server:
             print(f"✓ websocket server running on port {self.port}")
-            await asyncio.Future()
+            await server.serve_forever()
 
     def start(self):
         def run():
