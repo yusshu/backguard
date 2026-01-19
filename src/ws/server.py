@@ -30,7 +30,7 @@ class Server:
                     if device_type == "client":
                         user = self.store.get_user(identification, secret)
                         if not user:
-                            await ws.send("x error authentication failed")
+                            await ws.close(code=1008, reason="Authentication failed")
                             return
                         conn = ControlConnection(self, ws, user)
 
@@ -54,6 +54,9 @@ class Server:
                         await ws.send("x error unknown device type")
                         return
 
+                    if conn.id in self.connections:
+                        await ws.close(code=1008, reason="Duplicate connection")
+                        return
                     self.connections[conn.id] = conn
                     continue
 
@@ -64,12 +67,17 @@ class Server:
                 handled = await conn.handle(cmd, args)
                 if not handled:
                     await ws.send("x error unknown command")
+        except websockets.ConnectionClosedOK:
+            pass
+        except websockets.ConnectionClosedError as e:
+            print(f"x connection closed with error: {e}")
         finally:
             if conn:
                 self.connections.pop(conn.id, None)
             print("x client disconnected")
 
     async def serve(self):
+        self.loop = asyncio.get_running_loop()
         async with websockets.serve(self.handle, self.host, self.port, ping_interval=20, ping_timeout=20):
             print(f"✓ websocket server running on port {self.port}")
             await asyncio.Future()
@@ -84,4 +92,7 @@ class Server:
     def broadcast_to_clients(self, message):
         for conn in self.connections.values():
             if conn.type == "client":
-                asyncio.create_task(conn.ws.send(message))
+                self.loop.call_soon_threadsafe(
+                    asyncio.create_task,
+                    conn.ws.send(message)
+                )
