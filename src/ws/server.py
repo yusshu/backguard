@@ -81,6 +81,7 @@ class Server:
             if conn:
                 self.connections.pop(conn.id, None)
                 if conn.type == 'device':
+                    self.broadcast_to_clients(f"DEVICE_OFFLINE {conn.device.id}")
                     print(f"x device disconnected: {conn.device.id}")
                 else:
                     print(f"x client disconnected: {conn.user.username}")
