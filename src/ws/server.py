@@ -50,6 +50,11 @@ class Server:
                         device = self.store.get_or_register_device(identification, secret)
                         conn = FanDeviceConnection(self, ws, device)
                         print(f"✓ device connected: {device.id}")
+
+                        # disconnect previous instances
+                        for existing_conn in list(self.connections.values()):
+                            if existing_conn.type == "device" and existing_conn.device.id == device.id:
+                                existing_conn.ws.transport.close()
                     else:
                         await ws.send("x error unknown device type")
                         return
