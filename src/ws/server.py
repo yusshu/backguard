@@ -33,7 +33,8 @@ class Server:
                     device_type = args[0]
 
                     if device_type == "client":
-                        token = args[1]
+                        # join token args
+                        token = " ".join(args[1:])
                         payload = verify_jwt(token)
                         if not payload:
                             ws.transport.close()
