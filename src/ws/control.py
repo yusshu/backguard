@@ -13,5 +13,6 @@ class ControlConnection(Connection):
             for conn in self.server.connections.values():
                 if conn.type == "device" and conn.device.id == device_id:
                     return await conn.handle_from_client(self, device_cmd, device_args)
+            print(f"x device {device_id} not found for client {self.user.username}")
             return True
         return False
