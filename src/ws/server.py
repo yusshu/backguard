@@ -84,6 +84,7 @@ class Server:
             self.port,
             ping_interval=None,
             ping_timeout=None,
+            compression=None,
         ):
             print(f"✓ websocket server running on port {self.port}")
             await asyncio.Future()
