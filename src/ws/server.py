@@ -33,16 +33,17 @@ class Server:
                             ws.transport.close()
                             return
                         conn = ControlConnection(self, ws, user)
+                        devices = self.store.get_all_devices()
 
                         snapshot = {
-                            c.device.id: {
-                                'id': c.device.id,
-                                'name': c.device.name,
-                                'type': c.device.type,
-                                'state': c.serialize_state(),
+                            d.id: {
+                                'id': d.id,
+                                'name': d.name,
+                                'type': d.type,
+                                # find a state if online, if not, set to null
+                                'state': self.connections.get(d.id).state if d.id in self.connections else None,
                             }
-                            for c in self.connections.values()
-                            if c.type == "device"
+                            for d in devices
                         }
                         await ws.send(f"DEVICE_ALL {json.dumps(snapshot)}")
 

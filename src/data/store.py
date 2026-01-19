@@ -29,6 +29,10 @@ class Store:
 
         return user
 
+    def get_all_devices(self) -> list[Device]:
+        stmt = select(Device)
+        return list(self.session.scalars(stmt))
+
     def get_or_register_device(
         self,
         identification: str,
