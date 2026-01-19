@@ -78,7 +78,13 @@ class Server:
 
     async def serve(self):
         self.loop = asyncio.get_running_loop()
-        async with websockets.serve(self.handle, self.host, self.port, ping_interval=20, ping_timeout=20):
+        async with websockets.serve(
+            self.handle,
+            self.host,
+            self.port,
+            ping_interval=None,
+            ping_timeout=None,
+        ):
             print(f"✓ websocket server running on port {self.port}")
             await asyncio.Future()
 
