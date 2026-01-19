@@ -65,16 +65,8 @@ def create_app(store: Store):
             "id": user.id,
             "username": user.username,
             "name": user.name,
+            "token": token,
         })
-
-        resp.set_cookie(
-            "auth",
-            token,
-            httponly=True,
-            samesite="Strict",
-            secure=False,  # True in HTTPS
-            max_age=86400
-        )
 
         return resp
 
