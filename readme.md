@@ -28,5 +28,5 @@ $ cp .env.example .env
 
 ```sh
 # start server
-$ python -m src.main
+$ python -m src.index
 ```
