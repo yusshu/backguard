@@ -4,6 +4,7 @@ from ..data.models import Device
 
 class FanDeviceConnection(DeviceConnection):
     VALID_STATUS = {"off", "slow", "medium", "fast"}
+    VALID_MODE = {"manual", "scheduled", "threshold"}
 
     def __init__(self, server, ws, device: Device):
         super().__init__(ws, device)
@@ -13,7 +14,61 @@ class FanDeviceConnection(DeviceConnection):
         self._temperature = None
         self._humidity = None
 
+        self._mode = server.store.get_device_config(device.id, "mode") or "manual"
+        self._scheduled_start = None
+        self._scheduled_end = None
+        self._threshold_temp = None
+        self._scheduled_or_thresholded_status = None
+
     async def handle_from_client(self, client, cmd, args):
+        # commands that do not interact with the device
+        if cmd == "SWITCH_MODE":
+            mode = args[0]
+            if mode in self.VALID_MODE:
+                if mode != self._mode:
+                    self.server.store.set_device_config(self.device.id, "mode", mode)
+                    self._mode = mode
+                    self.broadcast()
+                return True
+            await client.ws.send("x error invalid mode")
+            return True
+        
+        if cmd == "SCHEDULE":
+            try:
+                start = args[0] if args[0] != "null" else None
+                end = args[1] if args[1] != "null" else None
+                self.server.store.set_device_config(self.device.id, "scheduled_start", start or "")
+                self.server.store.set_device_config(self.device.id, "scheduled_end", end or "")
+                self._scheduled_start = start
+                self._scheduled_end = end
+                self.broadcast()
+                return True
+            except Exception:
+                await client.ws.send("x error invalid schedule")
+                return True
+        
+        if cmd == "SET_THRESHOLD":
+            try:
+                temp = float(args[0]) if args[0] != "null" else None
+                self.server.store.set_device_config(self.device.id, "threshold_temp", str(temp) if temp is not None else "")
+                self._threshold_temp = temp
+                self.broadcast()
+                return True
+            except Exception:
+                await client.ws.send("x error invalid threshold temperature")
+                return True
+        
+        if cmd == "SET_SCHEDULED_OR_THRESHOLDED_STATUS":
+            status = args[0]
+            if status in self.VALID_STATUS:
+                self.server.store.set_device_config(self.device.id, "scheduled_or_thresholded_status", status)
+                self._scheduled_or_thresholded_status = status
+                self.broadcast()
+                return True
+            await client.ws.send("x error invalid status")
+            return True
+
+        # commands that interact with the device
         if cmd == "SET_STATUS":
             status = args[0]
             if status in self.VALID_STATUS:
@@ -69,6 +124,11 @@ class FanDeviceConnection(DeviceConnection):
             "rotates": self._rotates,
             "temperature": self._temperature,
             "humidity": self._humidity,
+            "mode": self._mode,
+            "scheduled_start": self._scheduled_start,
+            "scheduled_end": self._scheduled_end,
+            "threshold_temp": self._threshold_temp,
+            "scheduled_or_thresholded_status": self._scheduled_or_thresholded_status,
         }
 
     def broadcast(self):
