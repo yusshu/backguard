@@ -15,10 +15,10 @@ class FanDeviceConnection(DeviceConnection):
         self._humidity = None
 
         self._mode = server.store.get_device_config(device.id, "mode") or "manual"
-        self._scheduled_start = None
-        self._scheduled_end = None
-        self._threshold_temp = None
-        self._scheduled_or_thresholded_status = None
+        self._scheduled_start = server.store.get_device_config(device.id, "scheduled_start") or None
+        self._scheduled_end = server.store.get_device_config(device.id, "scheduled_end") or None
+        self._threshold_temp = float(server.store.get_device_config(device.id, "threshold_temp")) if server.store.get_device_config(device.id, "threshold_temp") is not None else None
+        self._scheduled_or_thresholded_status = server.store.get_device_config(device.id, "scheduled_or_thresholded_status") or None
 
     async def handle_from_client(self, client, cmd, args):
         # commands that do not interact with the device
