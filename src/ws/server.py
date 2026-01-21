@@ -14,6 +14,12 @@ class Server:
         self.port = port
         self.connections = {}
     
+    def get_device_state(self, device_id):
+        for conn in self.connections.values():
+            if conn.type == "device" and conn.device.id == device_id:
+                return conn.state
+        return None
+
     async def handle(self, ws):
         conn = None
 
@@ -55,8 +61,7 @@ class Server:
                                 'id': d.id,
                                 'name': d.name,
                                 'type': d.type,
-                                # find a state if online, if not, set to null
-                                'state': self.connections.get(d.id).state if d.id in self.connections else None,
+                                'state': self.get_device_state(d.id),
                             }
                             for d in devices
                         }
