@@ -1,7 +1,7 @@
 import bcrypt
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .models import User, Device
+from .models import User, Device, Configuration
 
 def hash_secret(raw: str) -> str:
     return bcrypt.hashpw(raw.encode(), bcrypt.gensalt()).decode()
@@ -18,6 +18,24 @@ class Store:
 
     def get_user_by_id(self, user_id: int) -> User | None:
         return self.session.get(User, user_id)
+
+    def set_device_config(self, device_id: str, key: str, value: str) -> None:
+        config = Configuration(
+            device_id=device_id,
+            key=key,
+            value=value,
+        )
+        self.session.merge(config)
+        self.session.commit()
+    
+    def get_device_config(self, device_id: str, key: str) -> str | None:
+        config = self.session.get(Configuration, {
+            "device_id": device_id,
+            "key": key
+        })
+        if config:
+            return config.value
+        return None
 
     def get_user(
         self,

@@ -1,5 +1,5 @@
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import String, Integer, ForeignKey
 
 class Base(DeclarativeBase):
     pass
@@ -20,3 +20,29 @@ class Device(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     secret: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    configurations: Mapped[list["Configuration"]] = relationship(
+        back_populates="device",
+        cascade="all, delete-orphan",
+    )
+
+class Configuration(Base):
+    __tablename__ = "configurations"
+
+    device_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("devices.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    key: Mapped[str] = mapped_column(
+        String(100),
+        primary_key=True,
+    )
+
+    value: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    device: Mapped["Device"] = relationship(back_populates="configurations")
