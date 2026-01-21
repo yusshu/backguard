@@ -111,6 +111,10 @@ class Server:
 
     async def serve(self):
         self.loop = asyncio.get_running_loop()
+
+        # start scheduler
+        asyncio.create_task(self.tick_loop())
+
         async with websockets.serve(
             self.handle,
             self.host,
@@ -128,6 +132,17 @@ class Server:
 
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
+    
+    async def tick_loop(self):
+        while True:
+            for conn in list(self.connections.values()):
+                try:
+                    if hasattr(conn, "tick"):
+                        await conn.tick()
+                except Exception as e:
+                    print(f"x tick error for {conn}: {e}")
+            await asyncio.sleep(1)
+
 
     def broadcast_to_clients(self, message):
         for conn in self.connections.values():

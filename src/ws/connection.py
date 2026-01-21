@@ -18,6 +18,9 @@ class Connection:
         print(f"⚠ received command '{cmd}' with args '{args}' but no handler defined")
         return False
 
+    async def tick(self):
+        pass
+
 
 class DeviceConnection(Connection):
     def __init__(self, ws, device):

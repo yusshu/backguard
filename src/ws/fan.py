@@ -1,6 +1,9 @@
+from datetime import datetime, time, timezone, timedelta
 import json
 from .connection import DeviceConnection
 from ..data.models import Device
+
+GMT_MINUS_5 = timezone(timedelta(hours=-5))
 
 class FanDeviceConnection(DeviceConnection):
     VALID_STATUS = {"off", "slow", "medium", "fast"}
@@ -135,3 +138,48 @@ class FanDeviceConnection(DeviceConnection):
         self.server.broadcast_to_clients(
             f"DEVICE {self.device.id} {json.dumps(self.serialize_state())}"
         )
+    
+    async def tick(self):
+        if self._mode == "manual":
+            return
+
+        desired_status = "off"
+
+        if self._mode == "scheduled":
+            if not self._scheduled_start or not self._scheduled_end:
+                return
+
+            try:
+                start_h, start_m = map(int, self._scheduled_start.split(":"))
+                end_h, end_m = map(int, self._scheduled_end.split(":"))
+            except ValueError:
+                return
+
+            start = time(start_h, start_m)
+            end = time(end_h, end_m)
+
+            now = datetime.now(GMT_MINUS_5).time()
+
+            # Determine if active
+            if start < end:
+                active = start <= now < end
+            else:
+                # Overnight schedule (e.g. 22:00 → 06:00)
+                active = now >= start or now < end
+
+            if active and self._scheduled_or_thresholded_status:
+                desired_status = self._scheduled_or_thresholded_status
+
+        elif self._mode == "threshold":
+            if (
+                self._temperature is None
+                or self._threshold_temp is None
+                or not self._scheduled_or_thresholded_status
+            ):
+                return
+
+            if self._temperature >= self._threshold_temp:
+                desired_status = self._scheduled_or_thresholded_status
+
+        if desired_status != self._status:
+            await self.ws.send(f"SET_STATUS {desired_status}")
