@@ -19,7 +19,6 @@ def create_app(store: Store):
         ]
     )
 
-    # ---------------- REGISTER ----------------
     @app.post("/register")
     def register():
         data = request.json or {}
@@ -92,6 +91,38 @@ def create_app(store: Store):
                 "name": user.name,
                 "email": user.email,
             }
+        })
+    
+    @app.post("/device_name")
+    def change_device_name():
+        # --- Auth ---
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify({"error": "Unauthorized"}), 401
+
+        token = auth.removeprefix("Bearer ").strip()
+        payload = verify_jwt(token)
+
+        if not payload:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        data = request.json or {}
+        device_id = data.get("deviceId")
+        new_name = (data.get("name") or "").strip()
+
+        if not device_id or not new_name:
+            return jsonify({"error": "Invalid payload"}), 400
+
+        device = store.get_device_by_id(device_id)
+        if not device:
+            return jsonify({"error": "Device not found"}), 404
+
+        device.name = new_name
+        store.session.commit()
+
+        return jsonify({
+            "id": device.id,
+            "name": device.name,
         })
 
     return app

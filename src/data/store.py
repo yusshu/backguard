@@ -13,6 +13,9 @@ class Store:
     def __init__(self, session: Session):
         self.session = session
 
+    def get_device_by_id(self, device_id: str) -> Device | None:
+        return self.session.get(Device, device_id)
+
     def get_user_by_id(self, user_id: int) -> User | None:
         return self.session.get(User, user_id)
 
