@@ -17,7 +17,7 @@ class Server:
     def get_device_state(self, device_id):
         for conn in self.connections.values():
             if conn.type == "device" and conn.device.id == device_id:
-                return conn.state
+                return conn.serialize_state()
         return None
 
     async def handle(self, ws):
