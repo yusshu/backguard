@@ -1,0 +1,28 @@
+{
+  "name": "backguard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.18.0",
+    "@prisma/client": "^5.20.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "tsx": "^4.19.1",
+    "prisma": "^5.20.0"
+  }
+}
