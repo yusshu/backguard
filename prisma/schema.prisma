@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  name     String
+  email    String @unique
+  password String
+}
+
+model Device {
+  id             String          @id
+  name           String
+  type           String
+  secret         String
+  configurations Configuration[]
+}
+
+model Configuration {
+  deviceId String
+  key      String
+  value    String
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([deviceId, key])
+}
