@@ -70,12 +70,14 @@ export class Server {
 
         if (cmd === "HELLO") {
           if (conn) {
+            console.log("x duplicate HELLO received, closing connection");
             await ws.send("x error duplicate HELLO");
             ws.close();
             return;
           }
 
           if (args.length < 2) {
+            console.log("x invalid HELLO format");
             await ws.send("x error invalid HELLO format");
             ws.close();
             return;
@@ -136,6 +138,7 @@ export class Server {
           }
 
           if (this.connections.has(conn.id)) {
+            console.log("x duplicate connection ID, closing new connection");
             ws.close();
             return;
           }
