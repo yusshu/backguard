@@ -60,6 +60,8 @@ export class Server {
     wss.on("connection", (ws) => {
       let conn: any = null;
 
+      ws.isAlive = true;
+
       ws.on("pong", () => {
         ws.isAlive = true;
       });
