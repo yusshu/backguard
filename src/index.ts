@@ -11,6 +11,7 @@ const store = new Store(prisma);
 
 const server = new Server(store, "0.0.0.0", WS_PORT);
 server.start();
+console.log(`✓ websocket server running on ${WS_PORT}`);
 
 const app = createApp(store);
 app.listen(HTTP_PORT, "0.0.0.0", () => {

@@ -8,7 +8,7 @@ export class Store {
   constructor(private readonly prisma: any) {}
 
   async createUser(payload: Omit<User, "id">): Promise<User> {
-    const user = await this.prisma.user.create({
+    return await this.prisma.user.create({
       data: payload,
       select: {
         id: true,
@@ -18,8 +18,6 @@ export class Store {
         password: true,
       },
     });
-
-    return user;
   }
 
   getUserById(userId: number): Promise<User | null> {

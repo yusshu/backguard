@@ -139,6 +139,7 @@ export class Server {
       ws.on("close", () => {
         if (!conn) return;
 
+        console.log(`connection closed: ${conn.type} ${conn.id}`);
         this.connections.delete(conn.id);
         if (conn.type === "device") {
           this.broadcastToClients(`DEVICE ${conn.device.id} null`);
