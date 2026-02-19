@@ -119,15 +119,17 @@ export class Server {
             const secret = args[2];
             const device = await this.store.getOrRegisterDevice(identification, secret);
             if (!device) {
+              console.log("x failed to register device");
               ws.close();
               return;
             }
 
-            console.log(`device connected: ${device.id} (${device.name})`);
+            console.log(`device connected: ${device.id} (${device.name}) from IP ${ws._socket.remoteAddress}`);
             conn = await FanDeviceConnection.create(this, ws, device);
 
             for (const existingConn of [...this.connections.values()]) {
               if (existingConn.type === "device" && existingConn.device.id === device.id) {
+                console.log("x duplicate device connection detected, closing existing connection");
                 existingConn.ws.close();
               }
             }
