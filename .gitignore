@@ -5,5 +5,7 @@
 # python stuff
 __pycache__/
 
+node_modules
+
 # database
 *.db

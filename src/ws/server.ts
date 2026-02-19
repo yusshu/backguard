@@ -77,6 +77,7 @@ export class Server {
               return;
             }
 
+            console.log(`control connected: ${user.id} (${user.name})`);
             conn = new ControlConnection(this, ws, user);
 
             const devices = await this.store.getAllDevices();
@@ -100,6 +101,7 @@ export class Server {
               return;
             }
 
+            console.log(`device connected: ${device.id} (${device.name})`);
             conn = await FanDeviceConnection.create(this, ws, device);
 
             for (const existingConn of [...this.connections.values()]) {
