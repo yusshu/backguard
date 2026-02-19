@@ -4,6 +4,8 @@ import { FanDeviceConnection } from "./fan.js";
 import { verifyJwt } from "../auth/jwt.js";
 import { Store } from "../data/store.js";
 
+const HEARTBEAT_INTERVAL = 15000; // 15 seconds
+
 export class Server {
   store: Store;
   host: string;
@@ -14,6 +16,20 @@ export class Server {
     this.store = store;
     this.host = host;
     this.port = port;
+
+    setInterval(() => {
+      for (const conn of this.connections.values()) {
+        const ws = conn.ws;
+        if (ws.isAlive === false) {
+          console.log("x terminating dead client");
+          ws.terminate();
+          continue;
+        }
+
+        ws.isAlive = false;
+        ws.ping();
+      }
+    }, HEARTBEAT_INTERVAL);
   }
 
   getDeviceState(deviceId: string): Record<string, unknown> | null {
@@ -43,6 +59,10 @@ export class Server {
 
     wss.on("connection", (ws) => {
       let conn: any = null;
+
+      ws.on("pong", () => {
+        ws.isAlive = true;
+      });
 
       ws.on("message", async (buf) => {
         const message = String(buf);
