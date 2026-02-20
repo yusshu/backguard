@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { ControlConnection } from "./control.js";
-import { FanDeviceConnection } from "./fan.js";
+import { FanDeviceConnection } from "../device/fan.js";
 import { verifyJwt } from "../auth/jwt.js";
 import { Store } from "../data/store.js";
 
@@ -43,7 +43,11 @@ export class Server {
   }
 
   start(): void {
-    const wss = new WebSocketServer({ host: this.host, port: this.port });
+    const wss = new WebSocketServer({
+      host: this.host,
+      port: this.port,
+      autoPong: true,
+    });
 
     setInterval(async () => {
       for (const conn of [...this.connections.values()]) {
@@ -57,14 +61,8 @@ export class Server {
       }
     }, 1000);
 
-    wss.on("connection", (ws) => {
+    wss.on("connection", (ws, req) => {
       let conn: any = null;
-
-      ws.isAlive = true;
-
-      ws.on("pong", () => {
-        ws.isAlive = true;
-      });
 
       ws.on("message", async (buf) => {
         const message = String(buf);
@@ -126,7 +124,7 @@ export class Server {
               return;
             }
 
-            console.log(`device connected: ${device.id} (${device.name}) from IP ${ws._socket.remoteAddress}`);
+            console.log(`device connected: ${device.id} (${device.name}) from IP ${req.socket.remoteAddress}`);
             conn = await FanDeviceConnection.create(this, ws, device);
 
             for (const existingConn of [...this.connections.values()]) {

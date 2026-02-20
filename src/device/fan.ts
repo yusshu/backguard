@@ -1,6 +1,6 @@
-import { DeviceConnection } from "./connection.js";
-import type { Server } from "./server.js";
-import type { Device, DeviceState } from "../data/models.js";
+import type { Server } from "../ws/server.js";
+import type { Device } from "../data/models.js";
+import {DeviceConnection, DeviceState} from "./device.js";
 
 const GMT_MINUS_5_OFFSET_MS = -5 * 60 * 60 * 1000;
 
@@ -49,7 +49,7 @@ export class FanDeviceConnection extends DeviceConnection {
     return new FanDeviceConnection(server, ws, device, state);
   }
 
-  async handleFromClient(client: import("./connection.js").Connection, cmd: string, args: string[]): Promise<boolean> {
+  async handleFromClient(client: import("../ws/connection.js").Connection, cmd: string, args: string[]): Promise<boolean> {
     if (cmd === "SWITCH_MODE") {
       const mode = args[0] as DeviceState["mode"];
       if (!["manual", "scheduled", "threshold"].includes(mode)) {
