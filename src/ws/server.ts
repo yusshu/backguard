@@ -48,7 +48,7 @@ export class Server {
     wss.on("connection", (ws, req) => {
       let conn: any = null;
 
-      ws.on("message", async (buf) => {
+      ws.on("message", (buf) => {
         const message = String(buf);
         const [cmd, ...args] = message.trim().split(" ");
 
