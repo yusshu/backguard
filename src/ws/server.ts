@@ -134,7 +134,7 @@ export class Server {
         }
 
         if (!conn) {
-          console.log("x command received before HELLO, closing connection");
+          console.log("x command received before HELLO, closing connection: " + message);
           await ws.send("x error must send HELLO first");
           ws.close();
           return;
