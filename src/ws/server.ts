@@ -148,7 +148,7 @@ export class Server {
 
       let processing = Promise.resolve();
 
-      ws.on("message", async (buf) => {
+      ws.on("message", buf => {
         processing = processing.then(() => handle(buf)).catch((error) => {
           console.error("x error handling message", error);
           ws.send("x error internal server error");
