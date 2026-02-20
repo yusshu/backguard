@@ -48,7 +48,7 @@ export class Server {
     wss.on("connection", (ws, req) => {
       let conn: any = null;
 
-      ws.on("message", (buf) => {
+      const handle = async (buf: any) => {
         const message = String(buf);
         const [cmd, ...args] = message.trim().split(" ");
 
@@ -144,6 +144,15 @@ export class Server {
         if (!handled) {
           await ws.send("x error unknown command");
         }
+      };
+
+      let processing = Promise.resolve();
+
+      ws.on("message", async (buf) => {
+        processing = processing.then(() => handle(buf)).catch((error) => {
+          console.error("x error handling message", error);
+          ws.send("x error internal server error");
+        });
       });
 
       ws.on("close", () => {
